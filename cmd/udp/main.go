@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"dielmex-pmv-http/internal/database"
+	"dielmex-pmv-http/internal/model"
 	"dielmex-pmv-http/internal/server"
 	"log"
 	"net"
 	"os/signal"
+	"strconv"
 	"syscall"
+	"time"
 )
 
 func gracefulShutdown(conn *net.UDPConn, done chan bool, db database.Service) {
@@ -50,13 +53,26 @@ func validarChecksum(data []byte) bool {
 	return xorSum == data[messageSize-3]
 }
 
-func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service) {
-	// dbService := db.GetDB()
-	// message := string(data)
+func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, con *net.UDPConn) {
+	dbService := db.GetDB()
+	message := string(data)
 
-	// ID := message[:3]
+	ID := string(message[0:3])
+	direccion := model.Direccion{
+		Nombre:             ID,
+		Direccion:          addr.IP.String(),
+		Puerto:             strconv.Itoa(addr.Port),
+		FechaActualizacion: time.Now().Format("Monday 02/Jan 15:04:05"),
+	}
 
-	// Busca en la base de datos si existe el id
+	result := dbService.Where("nombre = ?", ID).First(&model.Direccion{})
+	if result.RowsAffected == 0 {
+		dbService.Create(&direccion)
+		log.Printf("New address added: %s", direccion)
+	} else {
+		dbService.Model(&model.Direccion{}).Where("nombre = ?", ID).Updates(direccion)
+		log.Printf("Address updated: %s", direccion)
+	}
 
 }
 
@@ -98,7 +114,7 @@ func main() {
 			log.Printf("Received message from %s: %s", addr.String(), string(message))
 
 			if validarChecksum(message) {
-				procesarMensaje(message, addr, db)
+				procesarMensaje(message, addr, db, con)
 			} else {
 				log.Println("Corrupted message")
 			}
