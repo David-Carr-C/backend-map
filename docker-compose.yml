@@ -1,11 +1,13 @@
 services:
   psql_bp:
-    image: postgres:latest
+    image: docker.io/postgres:latest
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${BLUEPRINT_DB_DATABASE}
       POSTGRES_USER: ${BLUEPRINT_DB_USERNAME}
       POSTGRES_PASSWORD: ${BLUEPRINT_DB_PASSWORD}
+    networks:
+      - blueprint_network
     ports:
       - "${BLUEPRINT_DB_PORT}:5432"
     volumes:
@@ -16,16 +18,15 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    networks:
+      - blueprint_network
     ports:
-    - 9095:9095
+      - 9095:9095/udp
     depends_on:
       - psql_bp
-    environment:
-      BLUEPRINT_DB_HOST: psql_bp
-      BLUEPRINT_DB_PORT: ${BLUEPRINT_DB_PORT}
-      BLUEPRINT_DB_DATABASE: ${BLUEPRINT_DB_DATABASE}
-      BLUEPRINT_DB_USERNAME: ${BLUEPRINT_DB_USERNAME}
-      BLUEPRINT_DB_PASSWORD: ${BLUEPRINT_DB_PASSWORD}
 
+networks:
+  blueprint_network:
+    driver: bridge
 volumes:
   psql_volume_bp:
