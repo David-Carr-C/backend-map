@@ -54,11 +54,11 @@ func validarChecksum(data []byte) bool {
 	return xorSum == data[messageSize-3]
 }
 
-func enviarDummy(ID string, addr *net.UDPAddr, db database.DBService, con *net.UDPConn) {
+func enviarDummy(ID string, addr *net.UDPAddr, db database.Service, con *net.UDPConn) {
 	dbService := db.GetDB()
 
 	// Comando dummy
-	comando := model.Comando{}
+	comando := model.CatComando{}
 	result := dbService.Where("id = ?", 3).First(&comando)
 	if result.RowsAffected == 0 {
 		log.Printf("Command not found: %d", 3)
@@ -67,7 +67,7 @@ func enviarDummy(ID string, addr *net.UDPAddr, db database.DBService, con *net.U
 
 	// Direccion a la que se envia el dummy
 	direccion := model.Direccion{}
-	result := dbService.Where("nombre = ?", ID).First(&direccion)
+	result = dbService.Where("nombre = ?", ID).First(&direccion)
 	if result.RowsAffected == 0 {
 		log.Printf("Address not found: %s", ID)
 		return
