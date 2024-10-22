@@ -10,6 +10,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 
 	"dielmex-pmv-http/internal/database"
+	"dielmex-pmv-http/internal/model"
 )
 
 type Server struct {
@@ -18,12 +19,51 @@ type Server struct {
 	db database.Service
 }
 
+func migrations(db database.Service) {
+	dbService := db.GetDB()
+	dbService.AutoMigrate(&model.Usuario{})
+	dbService.AutoMigrate(&model.CatComando{})
+	dbService.AutoMigrate(&model.Direccion{})
+
+	// Insert default commands
+	model.SeedCatComando(dbService)
+
+	// Insert default users
+	root := model.Usuario{
+		Nombre:      "root",
+		Email:       "soporte@mail.com",
+		Contrasenia: "tacos_de_asada",
+		IdPerfil:    1,
+	}
+
+	root.EncriptarPassword()
+
+	usuario := model.Usuario{
+		Nombre:      "usuario",
+		Email:       "usuario@mail.com",
+		Contrasenia: "tacos_de_asada",
+		IdPerfil:    2,
+	}
+
+	usuario.EncriptarPassword()
+
+	dbService.Create(&root)
+	dbService.Create(&usuario)
+}
+
+func NewDatabase() database.Service {
+	database := database.New()
+	migrations(database)
+	return database
+}
+
 func NewServer() *http.Server {
+	database := NewDatabase()
+
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
 	NewServer := &Server{
 		port: port,
-
-		db: database.New(),
+		db:   database,
 	}
 
 	// Declare Server config
