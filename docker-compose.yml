@@ -11,5 +11,21 @@ services:
     volumes:
       - psql_volume_bp:/var/lib/postgresql/data
 
+  udp_server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+    - 9095:9095
+    depends_on:
+      - psql_bp
+    environment:
+      BLUEPRINT_DB_HOST: psql_bp
+      BLUEPRINT_DB_PORT: ${BLUEPRINT_DB_PORT}
+      BLUEPRINT_DB_DATABASE: ${BLUEPRINT_DB_DATABASE}
+      BLUEPRINT_DB_USERNAME: ${BLUEPRINT_DB_USERNAME}
+      BLUEPRINT_DB_PASSWORD: ${BLUEPRINT_DB_PASSWORD}
+
 volumes:
   psql_volume_bp:

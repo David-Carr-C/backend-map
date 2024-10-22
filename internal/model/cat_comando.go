@@ -12,6 +12,9 @@ type CatComando struct {
 	Descripcion string `gorm:"not null" json:"descripcion"`
 }
 
+//dielmexpmv.dyndns.org
+//dielmexgps.dyndns.org
+
 var comandos = []CatComando{
 	{Comando: "{{ID_UDP}}_C+NAME{{NOMBRE_NUEVO}}_{{CK}}\r\n", Descripcion: "Cambia el nombre del dispositivo"},
 	{Comando: "{{ID_UDP}}_C+MEN{{MENSAJE}}_{{CK}}\r\n", Descripcion: "Mensajes a desplegar"},

@@ -51,10 +51,10 @@ func validarChecksum(data []byte) bool {
 }
 
 func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service) {
-	dbService := db.GetDB()
-	message := string(data)
+	// dbService := db.GetDB()
+	// message := string(data)
 
-	ID := message[:3]
+	// ID := message[:3]
 
 	// Busca en la base de datos si existe el id
 
