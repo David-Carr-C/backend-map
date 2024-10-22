@@ -9,6 +9,7 @@ import (
 	"net"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -53,6 +54,61 @@ func validarChecksum(data []byte) bool {
 	return xorSum == data[messageSize-3]
 }
 
+func enviarDummy(ID string, addr *net.UDPAddr, db database.DBService, con *net.UDPConn) {
+	dbService := db.GetDB()
+
+	// Comando dummy
+	comando := model.Comando{}
+	result := dbService.Where("id = ?", 3).First(&comando)
+	if result.RowsAffected == 0 {
+		log.Printf("Command not found: %d", 3)
+		return
+	}
+
+	// Direccion a la que se envia el dummy
+	direccion := model.Direccion{}
+	result := dbService.Where("nombre = ?", ID).First(&direccion)
+	if result.RowsAffected == 0 {
+		log.Printf("Address not found: %s", ID)
+		return
+	}
+
+	// replace {{}} -> {{ID_UDP}}_C+DUMMY_{{CK}}\r\n
+	comandoString := strings.Replace(comando.Comando, "{{ID_UDP}}", direccion.Nombre, -1)
+	comandoString = strings.Replace(comandoString, "_", " ", -1)
+
+	crearChecksum := func(data string) byte {
+		var xorSum byte
+		for i := 0; i < len(data); i++ {
+			xorSum ^= data[i]
+		}
+
+		if xorSum%2 == 0 {
+			xorSum++
+		} else {
+			xorSum--
+		}
+
+		if xorSum == 10 {
+			xorSum++
+		}
+
+		return xorSum
+	}
+
+	checksum := crearChecksum(comandoString)
+	comandoString = strings.Replace(comandoString, "{{CK}}", string(checksum), -1)
+
+	log.Printf("Sending dummy: %s to %s", comandoString, addr.String())
+
+	_, err := con.WriteToUDP([]byte(comandoString), addr)
+	if err != nil {
+		log.Printf("Error sending dummy: %v", err)
+	} else {
+		log.Printf("Sent dummy to %s", addr.String())
+	}
+}
+
 func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, con *net.UDPConn) {
 	dbService := db.GetDB()
 	message := string(data)
@@ -62,7 +118,7 @@ func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, con *n
 		Nombre:             ID,
 		Direccion:          addr.IP.String(),
 		Puerto:             strconv.Itoa(addr.Port),
-		FechaActualizacion: time.Now().Format("Monday 02/Jan 15:04:05"),
+		FechaActualizacion: time.Now().In(time.Local).Format("Monday 02/Jan 15:04:05"),
 	}
 
 	result := dbService.Where("nombre = ?", ID).First(&model.Direccion{})
@@ -72,6 +128,13 @@ func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, con *n
 	} else {
 		dbService.Model(&model.Direccion{}).Where("nombre = ?", ID).Updates(direccion)
 		log.Printf("Address updated: %s", direccion)
+	}
+
+	if !strings.Contains(message, "ACK") {
+		log.Printf("Sending ACK to %s", addr.String())
+		enviarDummy(ID, addr, db, con)
+	} else {
+		// procesarACK(message, dbService)
 	}
 
 }
