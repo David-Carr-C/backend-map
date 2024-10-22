@@ -95,9 +95,9 @@ func main() {
 			}
 
 			message := buffer[:n]
-			log.Printf("Received message from %s: %s", addr.String(), message)
+			log.Printf("Received message from %s: %s", addr.String(), string(message))
 
-			if !validarChecksum(message) {
+			if validarChecksum(message) {
 				procesarMensaje(message, addr, db)
 			} else {
 				log.Println("Corrupted message")
