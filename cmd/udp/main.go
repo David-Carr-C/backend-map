@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os/signal"
 	"strconv"
 	"strings"
@@ -155,11 +156,25 @@ func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, conn *
 	}
 
 	if !strings.Contains(message, "ACK") {
-		enviarComando(ID, db, 7, conn)
+		enviarComando(ID, db, 3, conn)
 	} else {
 		log.Printf(">>> RESPONSE from client: %s", message)
 	}
 
+}
+
+var globalConn *net.UDPConn
+var globalDB database.Service
+
+func handleSendCommandRequest(w http.ResponseWriter, r *http.Request) {
+	deviceID := r.URL.Query().Get("device_id")
+	commandID, err := strconv.Atoi(r.URL.Query().Get("command_id"))
+	if err != nil {
+		http.Error(w, "Invalid command_id", http.StatusBadRequest)
+		return
+	}
+
+	enviarComando(deviceID, globalDB, commandID, globalConn)
 }
 
 func main() {
@@ -176,6 +191,17 @@ func main() {
 	defer conn.Close()
 
 	log.Printf("Listening on %s", conn.LocalAddr().String())
+
+	globalConn = conn
+	globalDB = db
+	http.HandleFunc("/send-command", handleSendCommandRequest)
+	go func() {
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			log.Fatalf("Error starting HTTP server: %v", err)
+		} else {
+			log.Println("HTTP server started on port 8080")
+		}
+	}()
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
