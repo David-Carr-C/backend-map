@@ -5,6 +5,7 @@ import (
 	"dielmex-pmv-http/internal/database"
 	"dielmex-pmv-http/internal/model"
 	"dielmex-pmv-http/internal/server"
+	"fmt"
 	"log"
 	"net"
 	"os/signal"
@@ -54,7 +55,7 @@ func validarChecksum(data []byte) bool {
 	return xorSum == data[messageSize-3]
 }
 
-func enviarDummy(ID string, addr *net.UDPAddr, db database.Service, con *net.UDPConn) {
+func enviarDummy(ID string, db database.Service) {
 	dbService := db.GetDB()
 
 	// Comando dummy
@@ -122,16 +123,34 @@ func enviarDummy(ID string, addr *net.UDPAddr, db database.Service, con *net.UDP
 		xorSum++
 	}
 
-	payload := append(payloadBytes, xorSum, 13, 10)
+	payload := append(payloadBytes, xorSum, 13, 10) // 13 = CR, 10 = LF
 
-	log.Printf("Sending dummy: %s to %s", comandoString, addr.String())
-
-	_, err := con.WriteToUDP(payload, addr)
+	// Crear conexión udp
+	ip := direccion.Direccion
+	port, _ := strconv.Atoi(direccion.Puerto)
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
-		log.Printf("Error sending dummy: %v", err)
-	} else {
-		log.Printf("Sent dummy to %s", addr.String())
+		log.Printf("Error resolving address: %v", err)
+		return
 	}
+
+	conn, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		log.Printf("Error creating connection: %v", err)
+		return
+	}
+
+	defer conn.Close()
+
+	// Enviar comando
+	_, err = conn.Write(payload)
+	if err != nil {
+		log.Printf("Error sending command: %v", err)
+		return
+	}
+
+	log.Printf("Last final")
+	log.Printf("Command sent: %s", comandoString)
 }
 
 func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, con *net.UDPConn) {
@@ -157,7 +176,7 @@ func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, con *n
 
 	if !strings.Contains(message, "ACK") {
 		log.Printf("Sending ACK to %s", addr.String())
-		enviarDummy(ID, addr, db, con)
+		enviarDummy(ID, db)
 	} else {
 		log.Printf(">>> RESPONSE from client: %s", message)
 	}
