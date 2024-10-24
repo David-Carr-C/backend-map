@@ -55,10 +55,25 @@ func calcularChecksum(data []byte) byte {
 }
 
 func validarChecksum(data []byte) bool {
-	payload := data[:len(data)-3]
-	checksum := data[len(data)-3]
+	message_size := len(data)
 
-	return calcularChecksum(payload) == checksum
+	var xorSum byte
+	for i := 0; i < message_size-3; i++ {
+		xorSum ^= data[i]
+	}
+
+	if xorSum%2 == 0 {
+		xorSum++
+	} else {
+		xorSum--
+	}
+
+	// Si el CK resultara igual a '\n'
+	if xorSum == 10 {
+		xorSum++
+	}
+
+	return xorSum == data[message_size-3]
 }
 
 func enviarComando(idDevice string, db database.Service, idCommand int, conn *net.UDPConn) {
