@@ -54,26 +54,6 @@ func validarChecksum(data []byte) bool {
 	return xorSum == data[messageSize-3]
 }
 
-func crearChecksum(data []byte) byte {
-	xorSum := byte(0)
-
-	for _, b := range data {
-		xorSum ^= b
-	}
-
-	if xorSum%2 == 0 {
-		xorSum++
-	} else {
-		xorSum--
-	}
-
-	if xorSum == 10 {
-		xorSum++
-	}
-
-	return xorSum
-}
-
 func enviarDummy(ID string, addr *net.UDPAddr, db database.Service, con *net.UDPConn) {
 	dbService := db.GetDB()
 
@@ -95,15 +75,54 @@ func enviarDummy(ID string, addr *net.UDPAddr, db database.Service, con *net.UDP
 
 	// replace {{}} -> {{ID_UDP}}_C+DUMMY_{{CK}}\r\n
 	// "{{ID_UDP}}_C+MEN?_{{CK}}"
-	comandoString := strings.Replace(comando.Comando, "{{ID_UDP}}", direccion.Nombre, -1)
-	comandoString = strings.Replace(comandoString, "_", " ", -1)
-	comandoString = strings.Replace(comandoString, "{{CK}}", "", -1)
+	// comandoString := strings.Replace(comando.Comando, "{{ID_UDP}}", direccion.Nombre, -1)
+	// comandoString = strings.Replace(comandoString, "_", " ", -1)
+	// comandoString = strings.Replace(comandoString, "{{CK}}", "", -1)
 
-	// To bytes
-	payload := []byte(comandoString)
-	checksum := crearChecksum(payload)
-	payload = append(payload, checksum)
-	payload = append(payload, []byte("\r\n")...)
+	// Test command and hardcoded
+	// {{ID_UDP}}_C+NAME{{NOMBRE_NUEVO}}_{{CK}}\r\n
+	// comandoString := "OAX C+NAMEOAK"
+	comandoString := "OAX C+DUMMY "
+
+	// from python:
+	/*
+			 # Adecua el dato de salida agregando a Payload la cadena CK+LF+CR.
+		    Payload_size = len(Payload)
+		    Payload_bytes = bytes(Payload,'utf-8')
+		    # Payload.encode() = bytes(Payload,'utf-8') dan los mismos resultados.
+
+		    XOR_Suma = 0
+		    for nn in range(Payload_size):
+		        XOR_Suma = XOR_Suma ^ Payload_bytes[nn]
+		    if XOR_Suma % 2 == 0:
+		        XOR_Suma = XOR_Suma + 1
+		    else:
+		        XOR_Suma = XOR_Suma - 1
+		    # Si el CK resultara igual a \n, se suma uno. Evita terminar la cadena prematuramente.
+		    if XOR_Suma == 10:
+		        XOR_Suma = XOR_Suma + 1
+	*/
+
+	// Calculate checksum
+	payloadSize := len(comandoString)
+	payloadBytes := []byte(comandoString)
+
+	var xorSum byte
+	for i := 0; i < payloadSize; i++ {
+		xorSum ^= payloadBytes[i]
+	}
+
+	if xorSum%2 == 0 {
+		xorSum++
+	} else {
+		xorSum--
+	}
+
+	if xorSum == 10 {
+		xorSum++
+	}
+
+	payload := append(payloadBytes, xorSum, 13, 10)
 
 	log.Printf("Sending dummy: %s to %s", comandoString, addr.String())
 
@@ -183,6 +202,7 @@ func main() {
 			log.Printf("Received message from %s: %s", addr.String(), string(message))
 
 			if validarChecksum(message) {
+				log.Println("Checksum OK")
 				procesarMensaje(message, addr, db, con)
 			} else {
 				log.Println("Corrupted message")
