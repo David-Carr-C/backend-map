@@ -104,6 +104,9 @@ func enviarComando(idDevice string, db database.Service, idCommand int, conn *ne
 
 	payload := append(payloadBytes, xorSum, 13, 10) // 13 = CR, 10 = LF
 
+	log.Printf("Payload: %s", payload)
+	log.Printf("Payload bin (hex): %x", payload)
+
 	// Crear conexión udp
 	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", direccion.Direccion, direccion.Puerto))
 	if err != nil {
@@ -118,6 +121,18 @@ func enviarComando(idDevice string, db database.Service, idCommand int, conn *ne
 	}
 
 	log.Printf("Command sent to %s: %s", direccion.Nombre, comandoString)
+
+	// Wait for response
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+
+	buffer := make([]byte, 1024)
+	n, _, err := conn.ReadFromUDP(buffer)
+	if err != nil {
+		log.Printf("Error reading UDP connection: %v", err)
+		return
+	} else {
+		log.Printf(">>> RESPONSE from client: %s", string(buffer[:n]))
+	}
 }
 
 func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, conn *net.UDPConn) {
@@ -142,8 +157,7 @@ func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, conn *
 	}
 
 	if !strings.Contains(message, "ACK") {
-		log.Printf("Sending ACK to %s", addr.String())
-		enviarComando(ID, db, 5, conn)
+		enviarComando(ID, db, 7, conn)
 	} else {
 		log.Printf(">>> RESPONSE from client: %s", message)
 	}
@@ -185,7 +199,7 @@ func main() {
 			}
 
 			message := buffer[:n]
-			log.Printf("Received message from %s: %s", addr.String(), string(message))
+			// log.Printf("Received message from %s: %s", addr.String(), string(message))
 
 			if validarChecksum(message) {
 				log.Println("Checksum OK")
