@@ -68,6 +68,7 @@ func enviarDummy(ID string, db database.Service) {
 
 	// Direccion a la que se envia el dummy
 	direccion := model.Direccion{}
+	ID = "OAX"
 	result = dbService.Where("nombre = ?", ID).First(&direccion)
 	if result.RowsAffected == 0 {
 		log.Printf("Address not found: %s", ID)
@@ -82,8 +83,8 @@ func enviarDummy(ID string, db database.Service) {
 
 	// Test command and hardcoded
 	// {{ID_UDP}}_C+NAME{{NOMBRE_NUEVO}}_{{CK}}\r\n
-	// comandoString := "OAX C+NAMEOAK"
-	comandoString := "OAX C+DUMMY "
+	comandoString := "OAX C+NAMEOAK"
+	// comandoString := "OAX C+DUMMY "
 
 	// from python:
 	/*
@@ -133,6 +134,8 @@ func enviarDummy(ID string, db database.Service) {
 		log.Printf("Error resolving address: %v", err)
 		return
 	}
+
+	log.Printf("Sending command to %s: %s", addr.String(), comandoString)
 
 	conn, err := net.DialUDP("udp", nil, addr)
 	if err != nil {
