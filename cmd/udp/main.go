@@ -54,12 +54,32 @@ func validarChecksum(data []byte) bool {
 	return xorSum == data[messageSize-3]
 }
 
+func crearChecksum(data []byte) byte {
+	xorSum := byte(0)
+
+	for _, b := range data {
+		xorSum ^= b
+	}
+
+	if xorSum%2 == 0 {
+		xorSum++
+	} else {
+		xorSum--
+	}
+
+	if xorSum == 10 {
+		xorSum++
+	}
+
+	return xorSum
+}
+
 func enviarDummy(ID string, addr *net.UDPAddr, db database.Service, con *net.UDPConn) {
 	dbService := db.GetDB()
 
 	// Comando dummy
 	comando := model.CatComando{}
-	result := dbService.Where("id = ?", 3).First(&comando)
+	result := dbService.Where("id = ?", 5).First(&comando)
 	if result.RowsAffected == 0 {
 		log.Printf("Command not found: %d", 3)
 		return
@@ -74,34 +94,20 @@ func enviarDummy(ID string, addr *net.UDPAddr, db database.Service, con *net.UDP
 	}
 
 	// replace {{}} -> {{ID_UDP}}_C+DUMMY_{{CK}}\r\n
+	// "{{ID_UDP}}_C+MEN?_{{CK}}"
 	comandoString := strings.Replace(comando.Comando, "{{ID_UDP}}", direccion.Nombre, -1)
 	comandoString = strings.Replace(comandoString, "_", " ", -1)
+	comandoString = strings.Replace(comandoString, "{{CK}}", "", -1)
 
-	crearChecksum := func(data string) byte {
-		var xorSum byte
-		for i := 0; i < len(data); i++ {
-			xorSum ^= data[i]
-		}
-
-		if xorSum%2 == 0 {
-			xorSum++
-		} else {
-			xorSum--
-		}
-
-		if xorSum == 10 {
-			xorSum++
-		}
-
-		return xorSum
-	}
-
-	checksum := crearChecksum(comandoString)
-	comandoString = strings.Replace(comandoString, "{{CK}}", string(checksum), -1)
+	// To bytes
+	payload := []byte(comandoString)
+	checksum := crearChecksum(payload)
+	payload = append(payload, checksum)
+	payload = append(payload, []byte("\r\n")...)
 
 	log.Printf("Sending dummy: %s to %s", comandoString, addr.String())
 
-	_, err := con.WriteToUDP([]byte(comandoString), addr)
+	_, err := con.WriteToUDP(payload, addr)
 	if err != nil {
 		log.Printf("Error sending dummy: %v", err)
 	} else {
@@ -134,7 +140,7 @@ func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, con *n
 		log.Printf("Sending ACK to %s", addr.String())
 		enviarDummy(ID, addr, db, con)
 	} else {
-		// procesarACK(message, dbService)
+		log.Printf(">>> RESPONSE from client: %s", message)
 	}
 
 }

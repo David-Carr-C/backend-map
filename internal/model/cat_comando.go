@@ -20,7 +20,7 @@ var comandos = []CatComando{
 	{Comando: "{{ID_UDP}}_C+MEN{{MENSAJE}}_{{CK}}\r\n", Descripcion: "Mensajes a desplegar"},
 	{Comando: "{{ID_UDP}}_C+DUMMY_{{CK}}\r\n", Descripcion: "Comando dummy para comprobar conexión"},
 	{Comando: "{{ID_UDP}}_C+RST_{{CK}}\r\n", Descripcion: "Reinicia el dispositivo"},
-	{Comando: "{{ID_UDP}}_C+MEN?_{{CK}}\r\n", Descripcion: "Consulta los mensajes a desplegar"},
+	{Comando: "{{ID_UDP}}_C+MEN?_{{CK}}", Descripcion: "Consulta los mensajes a desplegar"},
 	{Comando: "{{ID_UDP}}_C+KEEP_{{FRECUENCIA}}{{CK}}\r\n", Descripcion: "Modifica la frecuencia de envío de keep alive"},
 	{Comando: "{{ID_UDP}}_C+STAT?_{{CK}}\r\n", Descripcion: "Consulta el estado del dispositivo"},
 	{Comando: "{{ID_UDP}}_C+DNS{{DOMINIO}}_{{CK}}\r\n", Descripcion: "Configura el dominio donde se reportarán los dispositivos"},
