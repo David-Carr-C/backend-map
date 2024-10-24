@@ -120,7 +120,7 @@ func enviarComando(idDevice string, db database.Service, idCommand int, conn *ne
 	log.Printf("Command sent to %s: %s", direccion.Nombre, comandoString)
 }
 
-func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service) {
+func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, conn *net.UDPConn) {
 	dbService := db.GetDB()
 	message := string(data)
 
@@ -156,18 +156,18 @@ func main() {
 
 	// Create a UDP connection
 	address := 9095
-	con, err := net.ListenUDP("udp", &net.UDPAddr{Port: address})
+	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: address})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer con.Close()
+	defer conn.Close()
 
-	log.Printf("Listening on %s", con.LocalAddr().String())
+	log.Printf("Listening on %s", conn.LocalAddr().String())
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
-	go gracefulShutdown(con, done, db)
+	go gracefulShutdown(conn, done, db)
 
 	// Main loop
 	for {
@@ -178,7 +178,7 @@ func main() {
 		default:
 			// Read from the connection
 			buffer := make([]byte, 1024)
-			n, addr, err := con.ReadFromUDP(buffer)
+			n, addr, err := conn.ReadFromUDP(buffer)
 			if err != nil {
 				log.Printf("Error reading UDP connection: %v", err)
 				continue
@@ -189,7 +189,7 @@ func main() {
 
 			if validarChecksum(message) {
 				log.Println("Checksum OK")
-				procesarMensaje(message, addr, db)
+				procesarMensaje(message, addr, db, conn)
 			} else {
 				log.Println("Corrupted message")
 			}
