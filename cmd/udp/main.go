@@ -292,6 +292,7 @@ func main() {
 	http.HandleFunc("/get-locations", handleGetLocationsRequest)
 	http.HandleFunc("/get-location", handleGetLocationRequest)
 	go func() {
+		http.Handle("/", http.FileServer(http.Dir("./static")))
 		if err := http.ListenAndServe(":9095", nil); err != nil {
 			log.Fatalf("Error starting HTTP server: %v", err)
 		} else {
