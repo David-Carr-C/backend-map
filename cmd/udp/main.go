@@ -76,10 +76,10 @@ func enviarComando(idDevice string, db database.Service, idCommand int) {
 
 	// Replace {{}} -> {{ID_UDP}}_C+DUMMY_{{CK}}\r\n
 	// "{{ID_UDP}}_C+MEN?_{{CK}}\r\n"
-	comandoString := strings.ReplaceAll(comando.Comando, "{{ID_UDP}}", direccion.Nombre, -1)
-	comandoString = strings.ReplaceAll(comandoString, "_", " ", -1)
-	comandoString = strings.ReplaceAll(comandoString, "{{CK}}", "", -1)
-	comandoString = strings.ReplaceAll(comandoString, "\r\n", "", -1)
+	comandoString := strings.ReplaceAll(comando.Comando, "{{ID_UDP}}", direccion.Nombre)
+	comandoString = strings.ReplaceAll(comandoString, "_", " ")
+	comandoString = strings.ReplaceAll(comandoString, "{{CK}}", "")
+	comandoString = strings.ReplaceAll(comandoString, "\r\n", "")
 
 	log.Printf("Command builded: %s", comandoString)
 
