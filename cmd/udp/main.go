@@ -76,10 +76,10 @@ func enviarComando(idDevice string, db database.Service, idCommand int) {
 
 	// Replace {{}} -> {{ID_UDP}}_C+DUMMY_{{CK}}\r\n
 	// "{{ID_UDP}}_C+MEN?_{{CK}}\r\n"
-	comandoString := strings.Replace(comando.Comando, "{{ID_UDP}}", direccion.Nombre, -1)
-	comandoString = strings.Replace(comandoString, "_", " ", -1)
-	comandoString = strings.Replace(comandoString, "{{CK}}", "", -1)
-	comandoString = strings.Replace(comandoString, "\r\n", "", -1)
+	comandoString := strings.ReplaceAl(comando.Comando, "{{ID_UDP}}", direccion.Nombre, -1)
+	comandoString = strings.ReplaceAll(comandoString, "_", " ", -1)
+	comandoString = strings.ReplaceAll(comandoString, "{{CK}}", "", -1)
+	comandoString = strings.ReplaceAll(comandoString, "\r\n", "", -1)
 
 	// Calculate checksum
 	payloadSize := len(comandoString)
