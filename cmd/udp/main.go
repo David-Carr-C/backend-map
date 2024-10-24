@@ -83,7 +83,7 @@ func enviarDummy(ID string, db database.Service) {
 
 	// Test command and hardcoded
 	// {{ID_UDP}}_C+NAME{{NOMBRE_NUEVO}}_{{CK}}\r\n
-	comandoString := "OAX C+NAMEOAK"
+	comandoString := "OAX C+NAMEOAK "
 	// comandoString := "OAX C+DUMMY "
 
 	// from python:
