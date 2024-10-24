@@ -5,6 +5,7 @@ import (
 	"dielmex-pmv-http/internal/database"
 	"dielmex-pmv-http/internal/model"
 	"dielmex-pmv-http/internal/server"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -130,8 +131,7 @@ func enviarComando(idDevice string, db database.Service, idCommand int, conn *ne
 	log.Printf("Command sent to %s: %s", direccion.Nombre, comandoString)
 
 	// Wait for response
-	conn.SetReadDeadline(time.Now().Add(1024 * time.Second))
-
+	conn.SetReadDeadline(time.Now().Add(1024 * time.Second)) // todo: remove later
 }
 
 func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, conn *net.UDPConn) {
@@ -175,6 +175,99 @@ func handleSendCommandRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	enviarComando(deviceID, globalDB, commandID, globalConn)
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleCreateLocationRequest(w http.ResponseWriter, r *http.Request) {
+	currentName := r.FormValue("nombre")
+	latitud := r.FormValue("latitud")
+	longitud := r.FormValue("longitud")
+	currentMessage1 := r.FormValue("currentMessage1")
+	currentMessage2 := r.FormValue("currentMessage2")
+	currentMessage3 := r.FormValue("currentMessage3")
+
+	log.Printf("Entrando a handleCreateLocationRequest")
+	log.Printf("Name: %s, Latitud: %s, Longitud: %s, Message1: %s, Message2: %s, Message3: %s", currentName, latitud, longitud, currentMessage1, currentMessage2, currentMessage3)
+
+	dbService := globalDB.GetDB()
+
+	// Actualizar si es el mismo ID
+	currentNameSearch := currentName[:3]
+	var dispositivo model.Dispositivo
+	result := dbService.Where("nombre = ?", currentNameSearch).First(&dispositivo)
+	if result.RowsAffected > 0 {
+		dispositivo.Latitud = latitud
+		dispositivo.Longitud = longitud
+		dispositivo.Mensaje1 = currentMessage1
+		dispositivo.Mensaje2 = currentMessage2
+		dispositivo.Mensaje3 = currentMessage3
+
+		result = dbService.Model(&model.Dispositivo{}).Where("nombre = ?", currentNameSearch).Updates(dispositivo)
+		if result.Error != nil {
+			http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Dar de alta en model.Dispositivo
+	dispositivo = model.Dispositivo{
+		Nombre:   currentName,
+		Latitud:  latitud,
+		Longitud: longitud,
+		Mensaje1: currentMessage1,
+		Mensaje2: currentMessage2,
+		Mensaje3: currentMessage3,
+	}
+
+	result = dbService.Create(&dispositivo)
+	if result.Error != nil {
+		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	enviarComando(currentNameSearch, globalDB, 2, globalConn)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func handleGetLocationsRequest(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*") // Permitir todas las conexiones
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	dbService := globalDB.GetDB()
+
+	var dispositivos []model.Dispositivo
+	result := dbService.Find(&dispositivos)
+	if result.Error != nil {
+		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Dispositivos: %v", dispositivos)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(dispositivos)
+}
+
+func handleGetLocationRequest(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	dbService := globalDB.GetDB()
+
+	var dispositivo model.Dispositivo
+	result := dbService.Where("id = ?", id).First(&dispositivo)
+	if result.Error != nil {
+		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(dispositivo)
 }
 
 func main() {
@@ -195,11 +288,14 @@ func main() {
 	globalConn = conn
 	globalDB = db
 	http.HandleFunc("/send-command", handleSendCommandRequest)
+	http.HandleFunc("/create-location", handleCreateLocationRequest)
+	http.HandleFunc("/get-locations", handleGetLocationsRequest)
+	http.HandleFunc("/get-location", handleGetLocationRequest)
 	go func() {
-		if err := http.ListenAndServe(":8080", nil); err != nil {
+		if err := http.ListenAndServe(":9095", nil); err != nil {
 			log.Fatalf("Error starting HTTP server: %v", err)
 		} else {
-			log.Println("HTTP server started on port 8080")
+			log.Println("HTTP server started on port 9095")
 		}
 	}()
 

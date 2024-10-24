@@ -24,6 +24,7 @@ func migrations(db database.Service) {
 	dbService.AutoMigrate(&model.Usuario{})
 	dbService.AutoMigrate(&model.CatComando{})
 	dbService.AutoMigrate(&model.Direccion{})
+	dbService.AutoMigrate(&model.Dispositivo{})
 
 	// Insert default commands
 	model.SeedCatComando(dbService)
