@@ -102,6 +102,10 @@ func enviarComando(idDevice string, db database.Service, idCommand int, conn *ne
 		xorSum++
 	}
 
+	if xorSum == 13 {
+		xorSum++
+	}
+
 	payload := append(payloadBytes, xorSum, 13, 10) // 13 = CR, 10 = LF
 
 	log.Printf("Payload: %s", payload)
