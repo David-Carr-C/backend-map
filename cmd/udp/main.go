@@ -55,62 +55,12 @@ func validarChecksum(data []byte) bool {
 	return xorSum == data[messageSize-3]
 }
 
-func enviarDummy(ID string, db database.Service) {
-	dbService := db.GetDB()
-
-	// Comando dummy
-	comando := model.CatComando{}
-	result := dbService.Where("id = ?", 5).First(&comando)
-	if result.RowsAffected == 0 {
-		log.Printf("Command not found: %d", 3)
-		return
-	}
-
-	// Direccion a la que se envia el dummy
-	direccion := model.Direccion{}
-	result = dbService.Where("nombre = ?", ID).First(&direccion)
-	if result.RowsAffected == 0 {
-		log.Printf("Address not found: %s", ID)
-		return
-	}
-
-	// replace {{}} -> {{ID_UDP}}_C+DUMMY_{{CK}}\r\n
-	// "{{ID_UDP}}_C+MEN?_{{CK}}"
-	// comandoString := strings.Replace(comando.Comando, "{{ID_UDP}}", direccion.Nombre, -1)
-	// comandoString = strings.Replace(comandoString, "_", " ", -1)
-	// comandoString = strings.Replace(comandoString, "{{CK}}", "", -1)
-
-	// Test command and hardcoded
-	// {{ID_UDP}}_C+NAME{{NOMBRE_NUEVO}}_{{CK}}\r\n
-	// comandoString := "OAX C+NAMEOAK"
-	comandoString := "OAX C+DUMMY "
-
-	// from python:
-	/*
-			 # Adecua el dato de salida agregando a Payload la cadena CK+LF+CR.
-		    Payload_size = len(Payload)
-		    Payload_bytes = bytes(Payload,'utf-8')
-		    # Payload.encode() = bytes(Payload,'utf-8') dan los mismos resultados.
-
-		    XOR_Suma = 0
-		    for nn in range(Payload_size):
-		        XOR_Suma = XOR_Suma ^ Payload_bytes[nn]
-		    if XOR_Suma % 2 == 0:
-		        XOR_Suma = XOR_Suma + 1
-		    else:
-		        XOR_Suma = XOR_Suma - 1
-		    # Si el CK resultara igual a \n, se suma uno. Evita terminar la cadena prematuramente.
-		    if XOR_Suma == 10:
-		        XOR_Suma = XOR_Suma + 1
-	*/
-
-	// Calculate checksum
-	payloadSize := len(comandoString)
-	payloadBytes := []byte(comandoString)
-
+func crearChecksum(data []byte) byte {
+	messageSize := len(data)
 	var xorSum byte
-	for i := 0; i < payloadSize; i++ {
-		xorSum ^= payloadBytes[i]
+
+	for i := 0; i < messageSize; i++ {
+		xorSum ^= data[i]
 	}
 
 	if xorSum%2 == 0 {
@@ -123,16 +73,50 @@ func enviarDummy(ID string, db database.Service) {
 		xorSum++
 	}
 
+	return xorSum
+}
+
+func enviarComando(idDevice string, db database.Service, idCommand int) {
+	dbService := db.GetDB()
+
+	// Comando dummy
+	comando := model.CatComando{}
+	result := dbService.Where("id = ?", idCommand).First(&comando)
+	if result.RowsAffected == 0 {
+		log.Printf("Command not found: %d", idCommand)
+		return
+	}
+
+	// Direccion a la que se envia el dummy
+	direccion := model.Direccion{}
+	result = dbService.Where("nombre = ?", idDevice).First(&direccion)
+	if result.RowsAffected == 0 {
+		log.Printf("Address not found: %s", idDevice)
+		return
+	}
+
+	// Replace {{}} -> {{ID_UDP}}_C+DUMMY_{{CK}}\r\n
+	// "{{ID_UDP}}_C+MEN?_{{CK}}\r\n"
+	comandoString := strings.Replace(comando.Comando, "{{ID_UDP}}", direccion.Nombre, -1)
+	comandoString = strings.Replace(comandoString, "_", " ", -1)
+	comandoString = strings.Replace(comandoString, "{{CK}}", "", -1)
+	comandoString = strings.Replace(comandoString, "\r\n", "", -1)
+
+	// Calculate checksum
+	payloadBytes := []byte(comandoString)
+	xorSum := crearChecksum(payloadBytes)
 	payload := append(payloadBytes, xorSum, 13, 10) // 13 = CR, 10 = LF
 
 	// Crear conexión udp
-	ip := direccion.Direccion
-	port, _ := strconv.Atoi(direccion.Puerto)
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", ip, port))
+	IP := direccion.Direccion
+	PORT, _ := strconv.Atoi(direccion.Puerto)
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", IP, PORT))
 	if err != nil {
 		log.Printf("Error resolving address: %v", err)
 		return
 	}
+
+	log.Printf("Sending command to %s: %s", addr.String(), comandoString)
 
 	conn, err := net.DialUDP("udp", nil, addr)
 	if err != nil {
@@ -149,11 +133,10 @@ func enviarDummy(ID string, db database.Service) {
 		return
 	}
 
-	log.Printf("Last final")
-	log.Printf("Command sent: %s", comandoString)
+	log.Printf("Command sent: %s to %s", comandoString, addr.String())
 }
 
-func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, con *net.UDPConn) {
+func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service) {
 	dbService := db.GetDB()
 	message := string(data)
 
@@ -176,7 +159,7 @@ func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, con *n
 
 	if !strings.Contains(message, "ACK") {
 		log.Printf("Sending ACK to %s", addr.String())
-		enviarDummy(ID, db)
+		enviarComando(ID, db, 5)
 	} else {
 		log.Printf(">>> RESPONSE from client: %s", message)
 	}
@@ -222,7 +205,7 @@ func main() {
 
 			if validarChecksum(message) {
 				log.Println("Checksum OK")
-				procesarMensaje(message, addr, db, con)
+				procesarMensaje(message, addr, db)
 			} else {
 				log.Println("Corrupted message")
 			}
