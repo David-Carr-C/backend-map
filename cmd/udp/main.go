@@ -55,27 +55,6 @@ func validarChecksum(data []byte) bool {
 	return xorSum == data[messageSize-3]
 }
 
-func crearChecksum(data []byte) byte {
-	messageSize := len(data)
-	var xorSum byte
-
-	for i := 0; i < messageSize; i++ {
-		xorSum ^= data[i]
-	}
-
-	if xorSum%2 == 0 {
-		xorSum++
-	} else {
-		xorSum--
-	}
-
-	if xorSum == 10 {
-		xorSum++
-	}
-
-	return xorSum
-}
-
 func enviarComando(idDevice string, db database.Service, idCommand int) {
 	dbService := db.GetDB()
 
@@ -103,8 +82,24 @@ func enviarComando(idDevice string, db database.Service, idCommand int) {
 	comandoString = strings.Replace(comandoString, "\r\n", "", -1)
 
 	// Calculate checksum
+	payloadSize := len(comandoString)
 	payloadBytes := []byte(comandoString)
-	xorSum := crearChecksum(payloadBytes)
+
+	var xorSum byte
+	for i := 0; i < payloadSize; i++ {
+		xorSum ^= payloadBytes[i]
+	}
+
+	if xorSum%2 == 0 {
+		xorSum++
+	} else {
+		xorSum--
+	}
+
+	if xorSum == 10 {
+		xorSum++
+	}
+
 	payload := append(payloadBytes, xorSum, 13, 10) // 13 = CR, 10 = LF
 
 	// Crear conexión udp
