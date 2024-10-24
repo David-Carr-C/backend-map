@@ -125,14 +125,6 @@ func enviarComando(idDevice string, db database.Service, idCommand int, conn *ne
 	// Wait for response
 	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 
-	buffer := make([]byte, 1024)
-	n, _, err := conn.ReadFromUDP(buffer)
-	if err != nil {
-		log.Printf("Error reading UDP connection: %v", err)
-		return
-	} else {
-		log.Printf(">>> RESPONSE from client: %s", string(buffer[:n]))
-	}
 }
 
 func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, conn *net.UDPConn) {
