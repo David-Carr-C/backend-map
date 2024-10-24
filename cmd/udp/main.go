@@ -34,7 +34,7 @@ func gracefulShutdown(conn *net.UDPConn, done chan bool, db database.Service) {
 	done <- true
 }
 
-func calcularChecksum(data []byte) bool {
+func calcularChecksum(data []byte) byte {
 	messageSize := len(data)
 	var xorSum byte
 
@@ -84,11 +84,8 @@ func enviarComando(idDevice string, db database.Service, idCommand int, conn *ne
 	log.Printf("Command builded: %s", comandoString)
 
 	// Calculate checksum
-	payloadSize := len(comandoString)
 	payloadBytes := []byte(comandoString)
-
 	xorSum := calcularChecksum(payloadBytes)
-
 	payload := append(payloadBytes, xorSum, 13, 10) // 13 = CR, 10 = LF
 
 	log.Printf("Payload: %s", payload)
