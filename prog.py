@@ -6,10 +6,10 @@ import socket
 from datetime import datetime
 import numpy as np
 import threading
-import msvcrt
+#import msvcrt
 import time
-import tkinter as tk
-from tkinter import ttk
+#import tkinter as tk
+#from tkinter import ttk
 
 #==============================================================================
 #================================= Funciones ==================================
