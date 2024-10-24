@@ -123,7 +123,7 @@ func enviarComando(idDevice string, db database.Service, idCommand int, conn *ne
 	log.Printf("Command sent to %s: %s", direccion.Nombre, comandoString)
 
 	// Wait for response
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(1024 * time.Second))
 
 }
 
