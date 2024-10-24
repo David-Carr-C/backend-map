@@ -199,7 +199,7 @@ func main() {
 			message := buffer[:n]
 			// log.Printf("Received message from %s: %s", addr.String(), string(message))
 
-			if calcularChecksum(message) == message[len(message)-3] {
+			if validarChecksum(message) {
 				log.Println("Checksum OK")
 				procesarMensaje(message, addr, db, conn)
 			} else {
