@@ -55,7 +55,7 @@ func validarChecksum(data []byte) bool {
 	return xorSum == data[messageSize-3]
 }
 
-func enviarComando(idDevice string, db database.Service, idCommand int) {
+func enviarComando(idDevice string, db database.Service, idCommand int, conn *net.UDPConn) {
 	dbService := db.GetDB()
 
 	// Comando dummy
@@ -105,32 +105,19 @@ func enviarComando(idDevice string, db database.Service, idCommand int) {
 	payload := append(payloadBytes, xorSum, 13, 10) // 13 = CR, 10 = LF
 
 	// Crear conexión udp
-	IP := direccion.Direccion
-	PORT, _ := strconv.Atoi(direccion.Puerto)
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", IP, PORT))
+	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", direccion.Direccion, direccion.Puerto))
 	if err != nil {
-		log.Printf("Error resolving address: %v", err)
+		log.Printf("Error creating UDP address: %v", err)
 		return
 	}
 
-	log.Printf("Sending command to %s: %s", addr.String(), comandoString)
-
-	conn, err := net.DialUDP("udp", nil, addr)
+	_, err = conn.WriteToUDP(payload, udpAddr)
 	if err != nil {
-		log.Printf("Error creating connection: %v", err)
+		log.Printf("Error sending UDP message: %v", err)
 		return
 	}
 
-	defer conn.Close()
-
-	// Enviar comando
-	_, err = conn.Write(payload)
-	if err != nil {
-		log.Printf("Error sending command: %v", err)
-		return
-	}
-
-	log.Printf("Command sent: %s to %s", comandoString, addr.String())
+	log.Printf("Command sent to %s: %s", direccion.Nombre, comandoString)
 }
 
 func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service) {
@@ -156,7 +143,7 @@ func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service) {
 
 	if !strings.Contains(message, "ACK") {
 		log.Printf("Sending ACK to %s", addr.String())
-		enviarComando(ID, db, 5)
+		enviarComando(ID, db, 5, conn)
 	} else {
 		log.Printf(">>> RESPONSE from client: %s", message)
 	}
