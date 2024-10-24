@@ -34,7 +34,7 @@ func gracefulShutdown(conn *net.UDPConn, done chan bool, db database.Service) {
 	done <- true
 }
 
-func validarChecksum(data []byte) bool {
+func calcularChecksum(data []byte) bool {
 	messageSize := len(data)
 	var xorSum byte
 
@@ -52,7 +52,7 @@ func validarChecksum(data []byte) bool {
 		xorSum++
 	}
 
-	return xorSum == data[messageSize-3]
+	return xorSum
 }
 
 func enviarComando(idDevice string, db database.Service, idCommand int, conn *net.UDPConn) {
@@ -87,24 +87,7 @@ func enviarComando(idDevice string, db database.Service, idCommand int, conn *ne
 	payloadSize := len(comandoString)
 	payloadBytes := []byte(comandoString)
 
-	var xorSum byte
-	for i := 0; i < payloadSize; i++ {
-		xorSum ^= payloadBytes[i]
-	}
-
-	if xorSum%2 == 0 {
-		xorSum++
-	} else {
-		xorSum--
-	}
-
-	if xorSum == 10 {
-		xorSum++
-	}
-
-	if xorSum == 13 {
-		xorSum++
-	}
+	xorSum := calcularChecksum(payloadBytes)
 
 	payload := append(payloadBytes, xorSum, 13, 10) // 13 = CR, 10 = LF
 
@@ -197,7 +180,7 @@ func main() {
 			message := buffer[:n]
 			// log.Printf("Received message from %s: %s", addr.String(), string(message))
 
-			if validarChecksum(message) {
+			if calcularChecksum(message) == message[len(message)-3] {
 				log.Println("Checksum OK")
 				procesarMensaje(message, addr, db, conn)
 			} else {
