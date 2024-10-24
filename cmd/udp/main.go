@@ -155,7 +155,7 @@ func manejarConexion(conn *net.UDPConn) {
 
 			if !bytes.Contains(message, []byte("ACK")) {
 				fmt.Println(">>> KEEP ALIVE recibido.")
-				SendUDP(id, "C+DUMMY")
+				SendUDP(id, "C+MEN?")
 			} else {
 				fmt.Printf(">>> Respuesta desde cliente: %s\n", string(message))
 			}
