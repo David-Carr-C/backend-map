@@ -134,6 +134,80 @@ func enviarComando(idDevice string, db database.Service, idCommand int, conn *ne
 	conn.SetReadDeadline(time.Now().Add(1024 * time.Second)) // todo: remove later
 }
 
+func enviarComandoCarga(idDevice string, db database.Service, idCommand int, conn *net.UDPConn, carga1 string, cargaNum int) {
+	dbService := db.GetDB()
+
+	// Comando dummy
+	comando := model.CatComando{}
+	result := dbService.Where("id = ?", idCommand).First(&comando)
+	if result.RowsAffected == 0 {
+		log.Printf("Command not found: %d", idCommand)
+		return
+	}
+
+	// Direccion a la que se envia el dummy
+	direccion := model.Direccion{}
+	result = dbService.Where("nombre = ?", idDevice).First(&direccion)
+	if result.RowsAffected == 0 {
+		log.Printf("Address not found: %s", idDevice)
+		return
+	}
+
+	// Limpiar carga, cada linea debe tener 10 caracteres, si no lo logra rellena con ....
+	// Primero divide/split por renglones
+	cargaList1 := strings.Split(carga1, "\n")
+
+	// Contar cuantos caracteres tiene cada renglon
+	for i, renglon := range cargaList1 {
+		if len(renglon) > 10 {
+			cargaList1[i] = renglon[:10]
+		} else {
+			cargaList1[i] = renglon + strings.Repeat(".", 10-len(renglon))
+		}
+	}
+
+	carga1 = strings.Join(cargaList1, ",")
+
+	// Replace {{}} -> {{ID_UDP}}_C+DUMMY_{{CK}}\r\n
+	// "{{ID_UDP}}_C+MEN?_{{CK}}\r\n"
+	cargaNumero := strconv.Itoa(cargaNum)
+	messageVal := cargaNumero + "," + carga1
+	comandoString := strings.ReplaceAll(comando.Comando, "{{ID_UDP}}", direccion.Nombre)
+	comandoString = strings.ReplaceAll(comandoString, "_", " ")
+	comandoString = strings.ReplaceAll(comandoString, "{{MENSAJE}}", messageVal)
+	comandoString = strings.ReplaceAll(comandoString, "{{CK}}", "")
+	comandoString = strings.ReplaceAll(comandoString, "\r\n", "")
+
+	log.Printf("Command builded: %s", comandoString)
+
+	// Calculate checksum
+	payloadBytes := []byte(comandoString)
+	xorSum := calcularChecksum(payloadBytes)
+
+	payload := append(payloadBytes, xorSum, 13, 10) // 13 = CR, 10 = LF
+
+	log.Printf("Payload: %s", payload)
+	log.Printf("Payload bin (hex): %x", payload)
+
+	// Crear conexión udp
+	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%s", direccion.Direccion, direccion.Puerto))
+	if err != nil {
+		log.Printf("Error creating UDP address: %v", err)
+		return
+	}
+
+	_, err = conn.WriteToUDP(payload, udpAddr)
+	if err != nil {
+		log.Printf("Error sending UDP message: %v", err)
+		return
+	}
+
+	log.Printf("Command sent to %s: %s", direccion.Nombre, comandoString)
+
+	// Wait for response
+	conn.SetReadDeadline(time.Now().Add(1024 * time.Second)) // todo: remove later
+}
+
 func procesarMensaje(data []byte, addr *net.UDPAddr, db database.Service, conn *net.UDPConn) {
 	dbService := db.GetDB()
 	message := string(data)
@@ -209,6 +283,9 @@ func handleCreateLocationRequest(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.WriteHeader(http.StatusOK)
+		enviarComandoCarga(currentNameSearch, globalDB, 2, globalConn, currentMessage1, 1)
+		enviarComandoCarga(currentNameSearch, globalDB, 2, globalConn, currentMessage2, 2)
+		enviarComandoCarga(currentNameSearch, globalDB, 2, globalConn, currentMessage3, 3)
 		return
 	}
 
@@ -228,7 +305,9 @@ func handleCreateLocationRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	enviarComando(currentNameSearch, globalDB, 2, globalConn)
+	enviarComandoCarga(currentNameSearch, globalDB, 2, globalConn, currentMessage1, 1)
+	enviarComandoCarga(currentNameSearch, globalDB, 2, globalConn, currentMessage2, 2)
+	enviarComandoCarga(currentNameSearch, globalDB, 2, globalConn, currentMessage3, 3)
 
 	w.WriteHeader(http.StatusOK)
 }
